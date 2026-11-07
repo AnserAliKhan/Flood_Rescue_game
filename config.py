@@ -32,6 +32,21 @@ CELL_SANDBAG = "sandbag"
 # Diagonals are intentionally absent per connectivity rules
 DIRECTIONS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
+# Game Phases
+PHASE_PLANNING = "planning"
+PHASE_CONFIRMING = "confirming"
+PHASE_RESULTS = "results"
+
+# Transition Table: map of current phase to allowed next phases
+ALLOWED_TRANSITIONS = {
+    PHASE_PLANNING: [PHASE_CONFIRMING],
+    PHASE_CONFIRMING: [PHASE_PLANNING, PHASE_RESULTS],
+    PHASE_RESULTS: [PHASE_PLANNING],
+}
+# Note: F07 will add a "flooding" phase between confirming and results.
+
+CURRENT_LEVEL = 1 # Fixed for now until F10
+
 # Colours (RGB)
 COLOR_BG = (30, 30, 50)        # Dark blue-grey background
 COLOR_PANEL = (50, 50, 80)    # Slightly lighter panel color
@@ -47,6 +62,14 @@ COLOR_BTN_HOVER = (90, 90, 130)
 COLOR_BTN_ACTIVE = (120, 120, 160)
 COLOR_BTN_TEXT = (255, 255, 255)
 COLOR_MSG_TEXT = (255, 100, 100) # Light red for errors
+
+# Result Highlights
+COLOR_SAFE = (50, 205, 50)      # Green for connected
+COLOR_UNSAFE = (200, 50, 50)    # Red for not connected
+
+# Dialog Colors
+COLOR_DIALOG_BG = (60, 60, 90)
+COLOR_DIMMER = (0, 0, 0, 150)  # RGBA for transparent overlay
 
 # Cell type to colour mapping (SPEC.md 3.3)
 CELL_COLORS = {
@@ -73,8 +96,28 @@ LABEL_FONT_SIZE = 24
 # Button Layouts (x, y, w, h)
 BTN_SANDBAG_RECT = (50, 600, 200, 50)
 BTN_RESET_RECT = (300, 600, 200, 50)
+BTN_CONFIRM_RECT = (550, 600, 250, 50)
+BTN_RETRY_RECT = (400, 650, 200, 50)
+BTN_CONTINUE_RECT = (650, 650, 200, 50)
+
+# Dialog Layout
+DIALOG_RECT = (400, 250, 400, 250)
+DIALOG_YES_RECT = (450, 420, 120, 50)
+DIALOG_CANCEL_RECT = (580, 420, 120, 50)
+
 BTN_SANDBAG_LABEL = "SANDBAG TOOL"
 BTN_RESET_LABEL = "RESET"
+BTN_CONFIRM_LABEL = "CONFIRM ROUTES / START FLOOD"
+BTN_RETRY_LABEL = "RETRY LEVEL"
+BTN_CONTINUE_LABEL = "CONTINUE TO NEXT LEVEL"
+DIALOG_TITLE = "Confirm Routes?"
+DIALOG_YES_LABEL = "START FLOOD"
+DIALOG_CANCEL_LABEL = "KEEP PLANNING"
+
+# Message texts
+MSG_CONTINUE_PLACEHOLDER = "Coming in Feature F10..."
+MSG_BONUS_DENIED = "No efficiency bonus: not everyone was saved"
+MSG_BONUS_AWARDED = "Efficiency bonus awarded!"
 
 # Message Timeout
 MESSAGE_TIMEOUT = 2000 # ms
