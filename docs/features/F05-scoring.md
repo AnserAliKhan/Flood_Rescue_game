@@ -159,3 +159,4 @@ What was built, important code sections (especially `build_score_breakdown` and
 `calculate_efficiency_bonus`, and how each number is derived), Python concepts used, how
 to run and test it, known limitations (mention that a failed attempt can only ever score
 the population score, and that F06 must explain this to the player), then STOP.
+
