@@ -27,10 +27,14 @@ total_sandbags = baseline_sandbags + 5 for ALL levels (same margin, no per-level
 ## D4. Retry
 Retry keeps the SAME layout (same seed). Each level has a fixed seed in config.
 
-## D5. Efficiency bonus
-Weight is raised and kept in ONE configurable constant (EFFICIENCY_BONUS_PER_SANDBAG).
-Proposed value: 5 (one leftover sandbag = one saved person's 5 points). Change here if you prefer another value.
-population_score = saved_people * 5
+## D5. Scoring (amended)
+population_score = saved_people * POINTS_PER_PERSON
+efficiency_bonus = remaining_sandbags * EFFICIENCY_BONUS_PER_SANDBAG, but ONLY if ALL
+people in the level were saved. If anyone is unsaved, efficiency_bonus = 0.
+final_score = population_score + efficiency_bonus
+Weight is one configurable constant. Proposed value: 5.
+This amendment overrides SPEC 9.2 (its example gives a bonus with 16 of 20 saved; under
+this rule that bonus would be 0).
 
 ## D6. Difficulty
 Difficulty comes ONLY from more people and more buildings (7 -> 9 -> 11).
@@ -39,3 +43,4 @@ No shrinking sandbag margin.
 ## D7. Progression
 "Continue to Next Level" appears ONLY if ALL people in the level were saved.
 Otherwise only "Retry Level" is available.
+Because Continue needs all people saved (D7), the bonus is only ever awarded on a passed level.

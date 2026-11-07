@@ -28,6 +28,10 @@ CELL_HOSPITAL = "hospital"
 CELL_SHELTER = "shelter"
 CELL_SANDBAG = "sandbag"
 
+# Directions for grid traversal (Up, Down, Left, Right)
+# Diagonals are intentionally absent per connectivity rules
+DIRECTIONS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
 # Colours (RGB)
 COLOR_BG = (30, 30, 50)        # Dark blue-grey background
 COLOR_PANEL = (50, 50, 80)    # Slightly lighter panel color
