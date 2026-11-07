@@ -1,10 +1,11 @@
 import pygame
 from config import (
     WINDOW_WIDTH, WINDOW_HEIGHT, FPS, ROWS, COLS,
-    COLOR_BG, COLOR_HOVER, COLOR_SELECTED
+    COLOR_BG, COLOR_HOVER, COLOR_SELECTED, TEST_LAYOUT
 )
 import grid
 import interface
+import entities
 
 def main():
     # Initialize Pygame
@@ -16,6 +17,8 @@ def main():
 
     # Game State
     game_grid = grid.create_grid(ROWS, COLS)
+    # Build entities from the test layout
+    entities_list = entities.build_layout(game_grid, TEST_LAYOUT)
     selected_cell = None
 
     clock = pygame.time.Clock()
@@ -43,11 +46,35 @@ def main():
                     if hovered_cell:
                         selected_cell = hovered_cell
 
-        # 2. Rendering
+        # 2. Logic: Determine info for top panel
+        pop_total = entities.total_population(entities_list)
+        build_counts = entities.count_buildings(entities_list)
+        total_buildings = sum(build_counts.values())
+
+        # Handle building hover details
+        hover_text = "-"
+        if hovered_cell:
+            entity = entities.get_entity_at(entities_list, hovered_cell[0], hovered_cell[1])
+            if entity:
+                e_type = entity["type"].capitalize()
+                e_id = entity["id"]
+                e_pop = entity["population"]
+                # Special case for shelter ID
+                if e_type == "Shelter":
+                    hover_text = f"Shelter  people: {e_pop}"
+                else:
+                    hover_text = f"{e_type} #{e_id}  people: {e_pop}"
+            else:
+                hover_text = f"({hovered_cell[0]}, {hovered_cell[1]})"
+
+        selected_text = f"({selected_cell[0]}, {selected_cell[1]})" if selected_cell else "-"
+
+        # 3. Rendering
         screen.fill(COLOR_BG)
 
         # Draw the core game elements
         interface.draw_grid(screen, game_grid)
+        interface.draw_cell_labels(screen, game_grid)
         interface.draw_coordinates(screen)
 
         # Draw highlights
@@ -57,9 +84,8 @@ def main():
             interface.draw_highlight(screen, selected_cell, COLOR_SELECTED)
 
         # Draw UI panels
-        hover_text = f"({hovered_cell[0]}, {hovered_cell[1]})" if hovered_cell else "-"
-        selected_text = f"({selected_cell[0]}, {selected_cell[1]})" if selected_cell else "-"
-        interface.draw_panels(screen, hover_text, selected_text)
+        interface.draw_panels(screen, hover_text, selected_text, pop_total, total_buildings)
+        interface.draw_legend(screen)
 
         # Update display
         pygame.display.flip()

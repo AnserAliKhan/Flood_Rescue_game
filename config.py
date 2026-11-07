@@ -35,6 +35,7 @@ COLOR_GRID_LINE = (80, 80, 110) # Grid borders
 COLOR_TEXT = (240, 240, 240)   # Off-white text
 COLOR_HOVER = (100, 100, 150)   # Hover highlight
 COLOR_SELECTED = (150, 150, 200) # Selected highlight
+COLOR_LABEL_TEXT = (255, 255, 255) # White text for building labels
 
 # Cell type to colour mapping (SPEC.md 3.3)
 CELL_COLORS = {
@@ -45,6 +46,28 @@ CELL_COLORS = {
     CELL_SHELTER: (50, 205, 50),    # Green
     CELL_SANDBAG: (105, 105, 105)   # Dark grey
 }
+
+# Labels for cell types
+CELL_LABELS = {
+    CELL_HOUSE: "H",
+    CELL_SCHOOL: "S",
+    CELL_HOSPITAL: "+",
+    CELL_SHELTER: "SH",
+    CELL_SANDBAG: "B",
+    CELL_EMPTY: ""
+}
+
+LABEL_FONT_SIZE = 24
+
+# Test Layout (Level 2 match: 6 houses, 2 schools, 1 hospital, 1 shelter)
+# Temporary layout, replaced by generator in F08
+TEST_LAYOUT = [
+    (CELL_SHELTER, 5, 15),
+    (CELL_HOUSE, 1, 3), (CELL_HOUSE, 2, 10), (CELL_HOUSE, 7, 5),
+    (CELL_HOUSE, 8, 14), (CELL_HOUSE, 3, 22), (CELL_HOUSE, 7, 25),
+    (CELL_SCHOOL, 1, 18), (CELL_SCHOOL, 8, 22),
+    (CELL_HOSPITAL, 5, 4)
+]
 
 # Scoring constants
 POINTS_PER_PERSON = 5  # Points awarded for each saved person
