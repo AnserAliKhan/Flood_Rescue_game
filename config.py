@@ -37,6 +37,13 @@ COLOR_HOVER = (100, 100, 150)   # Hover highlight
 COLOR_SELECTED = (150, 150, 200) # Selected highlight
 COLOR_LABEL_TEXT = (255, 255, 255) # White text for building labels
 
+# Button Colours
+COLOR_BTN_NORMAL = (70, 70, 100)
+COLOR_BTN_HOVER = (90, 90, 130)
+COLOR_BTN_ACTIVE = (120, 120, 160)
+COLOR_BTN_TEXT = (255, 255, 255)
+COLOR_MSG_TEXT = (255, 100, 100) # Light red for errors
+
 # Cell type to colour mapping (SPEC.md 3.3)
 CELL_COLORS = {
     CELL_EMPTY: (220, 220, 220),    # Light grey
@@ -59,6 +66,15 @@ CELL_LABELS = {
 
 LABEL_FONT_SIZE = 24
 
+# Button Layouts (x, y, w, h)
+BTN_SANDBAG_RECT = (50, 600, 200, 50)
+BTN_RESET_RECT = (300, 600, 200, 50)
+BTN_SANDBAG_LABEL = "SANDBAG TOOL"
+BTN_RESET_LABEL = "RESET"
+
+# Message Timeout
+MESSAGE_TIMEOUT = 2000 # ms
+
 # Test Layout (Level 2 match: 6 houses, 2 schools, 1 hospital, 1 shelter)
 # Temporary layout, replaced by generator in F08
 TEST_LAYOUT = [
@@ -75,6 +91,7 @@ EFFICIENCY_BONUS_PER_SANDBAG = 5  # Points awarded for each unused sandbag (Deci
 
 # Sandbag settings
 SANDBAG_MARGIN = 5  # Extra sandbags given above the minimum for all levels (Decision D2)
+TEST_SANDBAG_BUDGET = 40 # Temporary value for testing
 
 # Building population values
 POPULATION = {
