@@ -7,12 +7,13 @@ import pytest
 from game import (
     create_game_state, change_phase, is_editing_allowed,
     request_confirmation, cancel_confirmation, confirm_routes,
-    can_continue, retry_level, bonus_explanation, finish_flood
+    can_continue, retry_level, bonus_explanation, finish_flood,
+    show_summary
 )
 from grid import create_grid
 from entities import place_entity, build_layout
 from config import (
-    PHASE_PLANNING, PHASE_CONFIRMING, PHASE_FLOODING, PHASE_RESULTS,
+    PHASE_PLANNING, PHASE_CONFIRMING, PHASE_FLOODING, PHASE_RESULTS, PHASE_SUMMARY,
     CELL_SHELTER, CELL_HOUSE, TEST_SANDBAG_BUDGET, ALLOWED_TRANSITIONS
 )
 
@@ -28,7 +29,7 @@ def test_initial_state():
 
 
 def test_transitions():
-    """Verify legal and illegal phase transitions including flooding."""
+    """Verify legal and illegal phase transitions including flooding and summary."""
     state = create_game_state()
 
     # Legal: Plan -> Confirm
@@ -43,7 +44,21 @@ def test_transitions():
     change_phase(state, PHASE_RESULTS)
     assert state["phase"] == PHASE_RESULTS
 
-    # Legal: Results -> Plan
+    # Legal: Results -> Summary (F10)
+    change_phase(state, PHASE_SUMMARY)
+    assert state["phase"] == PHASE_SUMMARY
+
+    # Illegal: Summary -> Planning or anything else (exiting summary requires new state)
+    with pytest.raises(ValueError):
+        change_phase(state, PHASE_PLANNING)
+
+    # Reset for other checks
+    state = create_game_state()
+
+    # Legal: Plan -> Confirm -> Flooding -> Results -> Plan (Retry)
+    change_phase(state, PHASE_CONFIRMING)
+    change_phase(state, PHASE_FLOODING)
+    change_phase(state, PHASE_RESULTS)
     change_phase(state, PHASE_PLANNING)
     assert state["phase"] == PHASE_PLANNING
 
@@ -55,20 +70,32 @@ def test_transitions():
     with pytest.raises(ValueError):
         change_phase(state, PHASE_FLOODING)
 
+    # Illegal: Plan -> Summary
+    with pytest.raises(ValueError):
+        change_phase(state, PHASE_SUMMARY)
+
     # Illegal: Confirm -> Results directly (must go through flooding now)
     change_phase(state, PHASE_CONFIRMING)
     with pytest.raises(ValueError):
         change_phase(state, PHASE_RESULTS)
 
-    # Illegal: Results -> Confirm
+    # Illegal: Confirm -> Summary
+    with pytest.raises(ValueError):
+        change_phase(state, PHASE_SUMMARY)
+
+    # Illegal: Flooding -> Summary
     change_phase(state, PHASE_FLOODING)
+    with pytest.raises(ValueError):
+        change_phase(state, PHASE_SUMMARY)
+
+    # Illegal: Results -> Confirm
     change_phase(state, PHASE_RESULTS)
     with pytest.raises(ValueError):
         change_phase(state, PHASE_CONFIRMING)
 
 
 def test_editing_allowed():
-    """Verify editing is only allowed in planning, not in confirming, flooding, or results."""
+    """Verify editing is only allowed in planning, not in confirming, flooding, results, or summary."""
     state = create_game_state()
     assert is_editing_allowed(state) is True
 
@@ -79,6 +106,9 @@ def test_editing_allowed():
     assert is_editing_allowed(state) is False
 
     change_phase(state, PHASE_RESULTS)
+    assert is_editing_allowed(state) is False
+
+    change_phase(state, PHASE_SUMMARY)
     assert is_editing_allowed(state) is False
 
 
@@ -152,6 +182,11 @@ def test_can_continue():
 
     # Results - Failed
     state["breakdown"] = {"passed": False}
+    assert can_continue(state) is False
+
+    # Summary (F10: must be False)
+    state["phase"] = PHASE_SUMMARY
+    state["breakdown"] = {"passed": True}
     assert can_continue(state) is False
 
 
@@ -311,8 +346,61 @@ def test_state_keys():
 
 def test_all_transition_phases_defined():
     """Every phase in ALLOWED_TRANSITIONS (keys and values) is a defined PHASE_* constant."""
-    defined_phases = {PHASE_PLANNING, PHASE_CONFIRMING, PHASE_FLOODING, PHASE_RESULTS}
+    defined_phases = {PHASE_PLANNING, PHASE_CONFIRMING, PHASE_FLOODING, PHASE_RESULTS, PHASE_SUMMARY}
     for key, targets in ALLOWED_TRANSITIONS.items():
         assert key in defined_phases, f"Key {key} is not a defined phase constant"
         for target in targets:
             assert target in defined_phases, f"Target {target} is not a defined phase constant"
+
+
+# ---- F10: Summary Phase Tests ----
+
+def test_show_summary_valid():
+    """show_summary in results with passed=True transitions to summary phase."""
+    state = create_game_state()
+    state["phase"] = PHASE_RESULTS
+    state["breakdown"] = {"passed": True, "saved_people": 20}
+
+    show_summary(state)
+    assert state["phase"] == PHASE_SUMMARY
+    assert state["breakdown"]["passed"] is True
+
+
+def test_show_summary_invalid():
+    """show_summary outside results or without passed=True raises ValueError."""
+    state = create_game_state()
+
+    # 1. In planning phase
+    with pytest.raises(ValueError, match="results phase"):
+        show_summary(state)
+
+    # 2. In results phase with passed=False
+    state["phase"] = PHASE_RESULTS
+    state["breakdown"] = {"passed": False}
+    with pytest.raises(ValueError, match="passed level"):
+        show_summary(state)
+    assert state["phase"] == PHASE_RESULTS
+
+    # 3. In results phase with breakdown=None
+    state["breakdown"] = None
+    with pytest.raises(ValueError, match="passed level"):
+        show_summary(state)
+    assert state["phase"] == PHASE_RESULTS
+
+
+def test_summary_phase_restrictions():
+    """In summary phase, editing and continue are disallowed; retry raises ValueError."""
+    grid = create_grid(10, 30)
+    entities = []
+    place_entity(grid, entities, CELL_SHELTER, 0, 0)
+
+    state = create_game_state()
+    state["phase"] = PHASE_SUMMARY
+    state["breakdown"] = {"passed": True}
+
+    assert is_editing_allowed(state) is False
+    assert can_continue(state) is False
+
+    with pytest.raises(ValueError, match="results phase"):
+        retry_level(state, grid, entities)
+    assert state["phase"] == PHASE_SUMMARY

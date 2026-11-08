@@ -4,7 +4,7 @@ Handles transitions between planning, confirming, flooding, and results phases.
 Pure logic: NO pygame imports allowed.
 """
 from config import (
-    PHASE_PLANNING, PHASE_CONFIRMING, PHASE_FLOODING, PHASE_RESULTS,
+    PHASE_PLANNING, PHASE_CONFIRMING, PHASE_FLOODING, PHASE_RESULTS, PHASE_SUMMARY,
     ALLOWED_TRANSITIONS, CELL_SHELTER, MSG_BONUS_DENIED, MSG_BONUS_AWARDED
 )
 import pathfinding
@@ -98,6 +98,19 @@ def can_continue(state):
         return False
 
     return state["breakdown"]["passed"] if state["breakdown"] else False
+
+def show_summary(state):
+    """
+    Transitions the game state from results to summary phase.
+    Only valid in results phase and when state['breakdown']['passed'] is True.
+    Raises ValueError otherwise, leaving state unchanged.
+    Example: show_summary(state)
+    """
+    if state["phase"] != PHASE_RESULTS:
+        raise ValueError(f"show_summary is only valid in the results phase, got: {state['phase']}")
+    if not state.get("breakdown") or not state["breakdown"].get("passed"):
+        raise ValueError("show_summary requires a passed level breakdown")
+    change_phase(state, PHASE_SUMMARY)
 
 def retry_level(state, grid, entities):
     """

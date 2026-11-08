@@ -37,17 +37,26 @@ PHASE_PLANNING = "planning"
 PHASE_CONFIRMING = "confirming"
 PHASE_FLOODING = "flooding"       # Added in F07: visual flood sweep
 PHASE_RESULTS = "results"
+PHASE_SUMMARY = "summary"         # Added in F10: final multi-level campaign summary
 
 # Transition Table: map of current phase to allowed next phases
-# F07 added the "flooding" phase between confirming and results.
+# F10: Results can transition to planning (retry) or summary (after Level 3).
+# Exiting summary is done by starting a fresh campaign/state (Play Again).
 ALLOWED_TRANSITIONS = {
-    PHASE_PLANNING: [PHASE_CONFIRMING],
+    PHASE_PLANNING:   [PHASE_CONFIRMING],
     PHASE_CONFIRMING: [PHASE_PLANNING, PHASE_FLOODING],
-    PHASE_FLOODING: [PHASE_RESULTS],
-    PHASE_RESULTS: [PHASE_PLANNING],
+    PHASE_FLOODING:   [PHASE_RESULTS],
+    PHASE_RESULTS:    [PHASE_PLANNING, PHASE_SUMMARY],
+    PHASE_SUMMARY:    [],
 }
 
-CURRENT_LEVEL = 1 # Fixed for now until F10
+CURRENT_LEVEL = 1  # Legacy constant for earlier unit tests; campaign dictionary manages active level in F10+
+
+# Human-readable level titles
+LEVEL_NAMES = {1: "Easy", 2: "Medium", 3: "Hard"}
+
+# Developer debug hotkeys flag (keys 1/2/3 in planning)
+DEBUG_LEVEL_KEYS = False
 
 # Colours (RGB)
 COLOR_BG = (30, 30, 50)        # Dark blue-grey background
@@ -116,9 +125,28 @@ BTN_RESET_LABEL = "RESET"
 BTN_CONFIRM_LABEL = "CONFIRM ROUTES / START FLOOD"
 BTN_RETRY_LABEL = "RETRY LEVEL"
 BTN_CONTINUE_LABEL = "CONTINUE TO NEXT LEVEL"
+BTN_SUMMARY_LABEL = "VIEW FINAL SUMMARY"
+BTN_PLAY_AGAIN_LABEL = "PLAY AGAIN"
 DIALOG_TITLE = "Confirm Routes?"
 DIALOG_YES_LABEL = "START FLOOD"
 DIALOG_CANCEL_LABEL = "KEEP PLANNING"
+
+# Summary Screen Layout & Typography (Window: 1200 x 750)
+SUMMARY_TITLE = "MISSION COMPLETE - FINAL SUMMARY"
+SUMMARY_SUBTITLE = "All areas secured! Evacuation successful."
+SUMMARY_COL_HEADINGS = ["Level", "Saved / Total", "Sandbags Used", "Pop Score", "Bonus", "Score"]
+SUMMARY_TABLE_X = 150
+SUMMARY_TABLE_Y = 160
+SUMMARY_ROW_HEIGHT = 45
+SUMMARY_COL_WIDTHS = [120, 180, 180, 140, 120, 160]  # Sum = 900px, 150px left/right margins
+BTN_PLAY_AGAIN_RECT = (475, 630, 250, 55)
+
+# Summary Colors
+COLOR_SUMMARY_TITLE = (255, 215, 0)      # Gold
+COLOR_SUMMARY_SUBTITLE = (180, 220, 255) # Light cyan
+COLOR_SUMMARY_LINE = (80, 80, 120)       # Divider line
+COLOR_SUMMARY_HEADER = (200, 200, 240)   # Light lavender
+COLOR_TOTAL_SCORE = (50, 205, 50)        # Vibrant green
 
 # Message texts
 MSG_CONTINUE_PLACEHOLDER = "Coming in Feature F10..."
@@ -190,6 +218,9 @@ LEVEL_BUILDINGS = {
     2: {"house": 6, "school": 2, "hospital": 1},
     3: {"house": 7, "school": 2, "hospital": 2}
 }
+
+# Total number of levels in campaign (derived from LEVEL_BUILDINGS)
+NUM_LEVELS = len(LEVEL_BUILDINGS)
 
 # Total target population per level
 LEVEL_POPULATION = {
