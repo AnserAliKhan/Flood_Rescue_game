@@ -1,10 +1,10 @@
 """
 Game state machine logic.
-Handles transitions between planning, confirming, and results phases.
+Handles transitions between planning, confirming, flooding, and results phases.
 Pure logic: NO pygame imports allowed.
 """
 from config import (
-    PHASE_PLANNING, PHASE_CONFIRMING, PHASE_RESULTS,
+    PHASE_PLANNING, PHASE_CONFIRMING, PHASE_FLOODING, PHASE_RESULTS,
     ALLOWED_TRANSITIONS, CELL_SHELTER, MSG_BONUS_DENIED, MSG_BONUS_AWARDED
 )
 import pathfinding
@@ -14,11 +14,12 @@ import sandbags
 def create_game_state():
     """
     Initializes the game state dictionary.
-    Example: create_game_state() -> {'phase': 'planning', 'breakdown': None}
+    Example: create_game_state() -> {'phase': 'planning', 'breakdown': None, 'safe_cells': None}
     """
     return {
         "phase": PHASE_PLANNING,
-        "breakdown": None
+        "breakdown": None,
+        "safe_cells": None
     }
 
 def change_phase(state, new_phase):
@@ -54,7 +55,8 @@ def cancel_confirmation(state):
 
 def confirm_routes(state, grid, entities, total_budget):
     """
-    Executes connectivity evaluation and scoring, then transitions to results.
+    Executes connectivity evaluation and scoring, then transitions to flooding.
+    The backend decides the result BEFORE the animation starts.
     Returns the breakdown dictionary.
     Example: confirm_routes(state, grid, entities, 40)
     """
@@ -68,14 +70,25 @@ def confirm_routes(state, grid, entities, total_budget):
 
     # 2. Backend evaluation
     # This is the atomic operation: if any step fails, the phase remains 'confirming'
-    pathfinding.evaluate_connectivity(grid, entities)
+    visited = pathfinding.evaluate_connectivity(grid, entities)
     breakdown = scoring.build_score_breakdown(grid, entities, total_budget)
 
-    # 3. Update state
+    # 3. Update state — store both breakdown AND safe set before the animation
     state["breakdown"] = breakdown
-    change_phase(state, PHASE_RESULTS)
+    state["safe_cells"] = visited
+    change_phase(state, PHASE_FLOODING)
 
     return breakdown
+
+def finish_flood(state):
+    """
+    Ends the flood animation and transitions to results.
+    Only valid in the flooding phase. Changes nothing except the phase.
+    Example: finish_flood(state)
+    """
+    if state["phase"] != PHASE_FLOODING:
+        raise ValueError("finish_flood is only valid in the flooding phase")
+    change_phase(state, PHASE_RESULTS)
 
 def can_continue(state):
     """
@@ -101,8 +114,9 @@ def retry_level(state, grid, entities):
         if e["type"] != CELL_SHELTER:
             e["connected"] = None
 
-    # Clear breakdown and transition
+    # Clear breakdown, safe cells, and transition
     state["breakdown"] = None
+    state["safe_cells"] = None
     change_phase(state, PHASE_PLANNING)
 
 def bonus_explanation(breakdown):

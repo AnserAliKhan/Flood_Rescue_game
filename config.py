@@ -35,15 +35,17 @@ DIRECTIONS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 # Game Phases
 PHASE_PLANNING = "planning"
 PHASE_CONFIRMING = "confirming"
+PHASE_FLOODING = "flooding"       # Added in F07: visual flood sweep
 PHASE_RESULTS = "results"
 
 # Transition Table: map of current phase to allowed next phases
+# F07 added the "flooding" phase between confirming and results.
 ALLOWED_TRANSITIONS = {
     PHASE_PLANNING: [PHASE_CONFIRMING],
-    PHASE_CONFIRMING: [PHASE_PLANNING, PHASE_RESULTS],
+    PHASE_CONFIRMING: [PHASE_PLANNING, PHASE_FLOODING],
+    PHASE_FLOODING: [PHASE_RESULTS],
     PHASE_RESULTS: [PHASE_PLANNING],
 }
-# Note: F07 will add a "flooding" phase between confirming and results.
 
 CURRENT_LEVEL = 1 # Fixed for now until F10
 
@@ -66,6 +68,10 @@ COLOR_MSG_TEXT = (255, 100, 100) # Light red for errors
 # Result Highlights
 COLOR_SAFE = (50, 205, 50)      # Green for connected
 COLOR_UNSAFE = (200, 50, 50)    # Red for not connected
+
+# Flood Animation Colours (F07)
+COLOR_WATER = (30, 100, 200, 120)        # Semi-transparent blue (RGBA)
+COLOR_WATER_FRONT = (60, 140, 240, 160)  # Brighter blue for the leading wave edge
 
 # Dialog Colors
 COLOR_DIALOG_BG = (60, 60, 90)
@@ -118,12 +124,18 @@ DIALOG_CANCEL_LABEL = "KEEP PLANNING"
 MSG_CONTINUE_PLACEHOLDER = "Coming in Feature F10..."
 MSG_BONUS_DENIED = "No efficiency bonus: not everyone was saved"
 MSG_BONUS_AWARDED = "Efficiency bonus awarded!"
+MSG_FLOODING_BANNER = "THE FLOOD IS COMING..."       # Banner during flood animation
+MSG_FLOODING_SKIP = "Press SPACE or click to skip"   # Skip hint during flood
+
+# Flood Animation Timing (F07)
+FLOOD_STEP_MS = 60       # ms per column; 30 x 60 = 1.8 s for the full sweep
+FLOOD_END_HOLD_MS = 800  # pause after the last column before results appear
 
 # Message Timeout
 MESSAGE_TIMEOUT = 2000 # ms
 
 # Test Layout (Level 2 match: 6 houses, 2 schools, 1 hospital, 1 shelter)
-# Temporary layout, replaced by generator in F08
+# Legacy layout kept for earlier tests; no longer used by main.py in F08+
 TEST_LAYOUT = [
     (CELL_SHELTER, 5, 15),
     (CELL_HOUSE, 1, 3), (CELL_HOUSE, 2, 10), (CELL_HOUSE, 7, 5),
@@ -132,13 +144,38 @@ TEST_LAYOUT = [
     (CELL_HOSPITAL, 5, 4)
 ]
 
+# Level Generation Configuration (F08)
+# Fixed seeds per level for reproducibility (Decision D4)
+LEVEL_SEEDS = {
+    1: 101,
+    2: 202,
+    3: 303
+}
+
+# Allowed column ranges (inclusive) and row range for buildings and shelter per level
+LEVEL_REGIONS = {
+    1: {"buildings_cols": (6, 23), "shelter_cols": (12, 17), "rows": (0, 9)},
+    2: {"buildings_cols": (2, 27), "shelter_cols": (10, 19), "rows": (0, 9)},
+    3: {"buildings_cols": (0, 29), "shelter_cols": (8, 21),  "rows": (0, 9)},
+}
+
+# Spacing rule: orthogonal gap between any two entities (Decision D3 / F08)
+# Buildings and shelter must not touch orthogonally. Diagonal touching is allowed.
+MIN_BUILDING_GAP = 1
+
+# Placement retry limits:
+# MAX_PLACEMENT_TRIES is how many random coordinates to sample per building before restarting.
+# MAX_LEVEL_RESTARTS is how many whole-layout attempts to make before giving up.
+MAX_PLACEMENT_TRIES = 200
+MAX_LEVEL_RESTARTS = 50
+
 # Scoring constants
 POINTS_PER_PERSON = 5  # Points awarded for each saved person
 EFFICIENCY_BONUS_PER_SANDBAG = 5  # Points awarded for each unused sandbag (Decision D5)
 
 # Sandbag settings
-SANDBAG_MARGIN = 5  # Extra sandbags given above the minimum for all levels (Decision D2)
-TEST_SANDBAG_BUDGET = 40 # Temporary value for testing
+SANDBAG_MARGIN = 5  # Extra sandbags given above baseline for all levels (Decision D2; formula in baseline.calculate_sandbag_budget)
+TEST_SANDBAG_BUDGET = 40  # Legacy constant kept for earlier unit tests; no longer used by main.py in F09+
 
 # Building population values
 POPULATION = {

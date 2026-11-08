@@ -1,4 +1,5 @@
 import pygame
+import config
 from config import (
     TOP_PANEL_HEIGHT, BOTTOM_PANEL_HEIGHT, GRID_ORIGIN_X, GRID_ORIGIN_Y,
     CELL_SIZE, ROWS, COLS, COLOR_PANEL, COLOR_GRID_LINE, COLOR_TEXT,
@@ -11,10 +12,12 @@ from config import (
     BTN_RETRY_LABEL, BTN_CONTINUE_LABEL,
     COLOR_SAFE, COLOR_UNSAFE, COLOR_DIALOG_BG, COLOR_DIMMER,
     DIALOG_RECT, DIALOG_YES_RECT, DIALOG_CANCEL_RECT,
-    DIALOG_TITLE
+    DIALOG_TITLE, DIALOG_YES_LABEL, DIALOG_CANCEL_LABEL,
+    COLOR_WATER, COLOR_WATER_FRONT,
+    MSG_FLOODING_BANNER, MSG_FLOODING_SKIP
 )
 
-def draw_panels(screen, hover_info, selected_info, pop_info, build_info, sandbag_info, phase_name):
+def draw_panels(screen, hover_info, selected_info, pop_info, build_info, sandbag_info, phase_name, current_level=1):
     """
     Draws the top and bottom information panels.
     """
@@ -23,12 +26,13 @@ def draw_panels(screen, hover_info, selected_info, pop_info, build_info, sandbag
 
     font = pygame.font.Font(None, 36)
 
-    # Title and Phase
+    # Title, Level and Phase
     title_surf = font.render("FLOOD RESCUE", True, COLOR_TEXT)
     screen.blit(title_surf, (20, 20))
 
-    # Level and Phase display
-    # Note: CURRENT_LEVEL is imported from config in main.py, but we can pass it or use a fixed string here
+    level_surf = font.render(f"Level {current_level}", True, COLOR_TEXT)
+    screen.blit(level_surf, (550, 20))
+
     phase_surf = font.render(f"Phase: {phase_name.capitalize()}", True, COLOR_TEXT)
     screen.blit(phase_surf, (1000, 20))
 
@@ -205,7 +209,7 @@ def draw_confirm_dialog(screen, remaining, font):
     cancel_rect = cancel_surf.get_rect(center=(DIALOG_CANCEL_RECT[0] + 60, DIALOG_CANCEL_RECT[1] + 25))
     screen.blit(cancel_surf, cancel_rect)
 
-def draw_results_panel(screen, breakdown, can_continue, font):
+def draw_results_panel(screen, breakdown, can_continue, font, current_level=1):
     """
     Draws a detailed breakdown in the bottom panel.
     """
@@ -219,7 +223,7 @@ def draw_results_panel(screen, breakdown, can_continue, font):
 
     # Row 1: Basic Stats
     lines = [
-        (f"Level: {config.CURRENT_LEVEL}", f"Pop: {breakdown['total_population']}"),
+        (f"Level: {current_level}", f"Pop: {breakdown['total_population']}"),
         (f"Saved: {breakdown['saved_people']}", f"Unsaved: {breakdown['unsaved_people']}"),
         (f"H: {breakdown['houses_connected']} S: {breakdown['schools_connected']} Hosp: {breakdown['hospitals_connected']}", ""),
         (f"Budget: {breakdown['sandbags_allocated']} Used: {breakdown['sandbags_used']} Rem: {breakdown['sandbags_remaining']}", ""),
@@ -261,3 +265,62 @@ def draw_results_panel(screen, breakdown, can_continue, font):
         cont_surf = font.render(BTN_CONTINUE_LABEL, True, COLOR_BTN_TEXT)
         cont_rect = cont_surf.get_rect(center=(BTN_CONTINUE_RECT[0] + 100, BTN_CONTINUE_RECT[1] + 25))
         screen.blit(cont_surf, cont_rect)
+
+
+# ---- F07: Flood Animation Drawing ----
+
+def draw_flood(screen, flooded_cells, front_col):
+    """
+    Draws semi-transparent water over every cell in flooded_cells.
+    Uses ONE reusable cell-sized RGBA surface for efficiency (not 300 new surfaces).
+    front_col is the column index of the wave's leading edge (-1 for no highlight).
+    """
+    # Create one reusable cell-sized surface with alpha support
+    water_cell = pygame.Surface((CELL_SIZE, CELL_SIZE), pygame.SRCALPHA)
+
+    for row, col in flooded_cells:
+        # Use brighter colour for the wave front, normal for the rest
+        if col == front_col:
+            water_cell.fill(COLOR_WATER_FRONT)
+        else:
+            water_cell.fill(COLOR_WATER)
+
+        x = GRID_ORIGIN_X + (col * CELL_SIZE)
+        y = GRID_ORIGIN_Y + (row * CELL_SIZE)
+        screen.blit(water_cell, (x, y))
+
+
+def draw_flooded_buildings(screen, entities, flooded_cells):
+    """
+    Draws a red outline on every non-shelter building whose cell is in flooded_cells.
+    Connected buildings get no highlight during flooding (green appears in results, F06).
+    """
+    for e in entities:
+        if e["type"] == "shelter":
+            continue
+
+        pos = (e["row"], e["col"])
+        if pos in flooded_cells:
+            x = GRID_ORIGIN_X + (pos[1] * CELL_SIZE)
+            y = GRID_ORIGIN_Y + (pos[0] * CELL_SIZE)
+            pygame.draw.rect(screen, COLOR_UNSAFE, (x, y, CELL_SIZE, CELL_SIZE), 4)
+
+
+def draw_flood_banner(screen, font):
+    """
+    Draws the flooding banner and skip hint in the bottom panel area.
+    Replaces buttons and legend during the flooding phase.
+    """
+    # Bottom panel background
+    pygame.draw.rect(screen, COLOR_PANEL, (0, 1200 - BOTTOM_PANEL_HEIGHT, 1200, BOTTOM_PANEL_HEIGHT))
+
+    # Banner text centred in the bottom panel
+    banner_surf = font.render(MSG_FLOODING_BANNER, True, COLOR_TEXT)
+    banner_rect = banner_surf.get_rect(center=(600, 1200 - BOTTOM_PANEL_HEIGHT + 50))
+    screen.blit(banner_surf, banner_rect)
+
+    # Skip hint below the banner
+    skip_font = pygame.font.Font(None, 24)
+    skip_surf = skip_font.render(MSG_FLOODING_SKIP, True, COLOR_MSG_TEXT)
+    skip_rect = skip_surf.get_rect(center=(600, 1200 - BOTTOM_PANEL_HEIGHT + 90))
+    screen.blit(skip_surf, skip_rect)
