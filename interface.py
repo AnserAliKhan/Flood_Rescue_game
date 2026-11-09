@@ -1,74 +1,133 @@
+"""
+interface.py - Pygame GUI Rendering and User Interface Components (F12)
+
+Handles all graphical rendering: grid display, cell labels, panels, dialogs,
+buttons, animations, and full-screen views (Menu, Instructions, Final Summary).
+
+RULES:
+- Zero game logic mutation: rendering functions only read state data.
+- All fonts are pre-initialized once via init_fonts() to avoid per-frame allocations.
+"""
+
 import pygame
-import config
 from config import (
+    WINDOW_WIDTH, WINDOW_HEIGHT,
     TOP_PANEL_HEIGHT, BOTTOM_PANEL_HEIGHT, GRID_ORIGIN_X, GRID_ORIGIN_Y,
     CELL_SIZE, ROWS, COLS, COLOR_BG, COLOR_PANEL, COLOR_GRID_LINE, COLOR_TEXT,
-    COLOR_HOVER, COLOR_SELECTED, CELL_COLORS, CELL_LABELS,
-    LABEL_FONT_SIZE, COLOR_LABEL_TEXT,
+    CELL_COLORS, CELL_LABELS, LABEL_FONT_SIZE, COLOR_LABEL_TEXT,
     COLOR_BTN_NORMAL, COLOR_BTN_HOVER, COLOR_BTN_ACTIVE, COLOR_BTN_TEXT,
-    COLOR_MSG_TEXT, BTN_SANDBAG_RECT, BTN_RESET_RECT, BTN_CONFIRM_RECT,
-    BTN_RETRY_RECT, BTN_CONTINUE_RECT,
-    BTN_SANDBAG_LABEL, BTN_RESET_LABEL, BTN_CONFIRM_LABEL,
+    COLOR_MSG_TEXT, BTN_RETRY_RECT, BTN_CONTINUE_RECT,
     BTN_RETRY_LABEL, BTN_CONTINUE_LABEL,
     COLOR_SAFE, COLOR_UNSAFE, COLOR_DIALOG_BG, COLOR_DIMMER,
     DIALOG_RECT, DIALOG_YES_RECT, DIALOG_CANCEL_RECT,
     DIALOG_TITLE, DIALOG_YES_LABEL, DIALOG_CANCEL_LABEL,
     COLOR_WATER, COLOR_WATER_FRONT,
     MSG_FLOODING_BANNER, MSG_FLOODING_SKIP,
-    NUM_LEVELS, LEVEL_NAMES, BTN_SUMMARY_LABEL, BTN_PLAY_AGAIN_LABEL,
+    NUM_LEVELS, LEVEL_NAMES, BTN_PLAY_AGAIN_LABEL,
     SUMMARY_TITLE, SUMMARY_SUBTITLE, SUMMARY_COL_HEADINGS,
     SUMMARY_TABLE_X, SUMMARY_TABLE_Y, SUMMARY_ROW_HEIGHT, SUMMARY_COL_WIDTHS,
-    BTN_PLAY_AGAIN_RECT, COLOR_SUMMARY_TITLE, COLOR_SUMMARY_SUBTITLE,
-    COLOR_SUMMARY_LINE, COLOR_SUMMARY_HEADER, COLOR_TOTAL_SCORE
+    SUMMARY_PLAY_AGAIN_RECT, SUMMARY_MENU_RECT, BTN_MENU_LABEL,
+    COLOR_SUMMARY_TITLE, COLOR_SUMMARY_SUBTITLE,
+    COLOR_SUMMARY_LINE, COLOR_SUMMARY_HEADER, COLOR_TOTAL_SCORE,
+    MENU_TITLE, MENU_TAGLINE, MENU_BUTTONS, MENU_CAPTIONS,
+    INSTRUCTIONS_TITLE, INSTRUCTIONS_BACK_RECT, INSTRUCTIONS_BACK_LABEL,
+    INSTRUCTIONS_COL1_X, INSTRUCTIONS_COL2_X, INSTRUCTIONS_START_Y,
+    INSTRUCTIONS_LINE_HEIGHT, INSTRUCTIONS_SECTION_GAP,
+    HEADER_TITLE, PANEL_TITLE_POS, PANEL_LEVEL_POS, PANEL_SCORE_POS, PANEL_PHASE_POS,
+    LEGEND_BOX_SIZE, LEGEND_START_X, LEGEND_SPACING,
+    MESSAGE_CENTER_POS,
+    RESULTS_COL1_X, RESULTS_COL2_X,
+    DIALOG_TITLE_POS, DIALOG_SUBTITLE_POS,
+    MENU_TITLE_POS, MENU_TAGLINE_POS, INSTRUCTIONS_TITLE_POS,
+    SUMMARY_TITLE_POS, SUMMARY_SUBTITLE_POS, SUMMARY_TOTAL_SCORE_POS,
+    SUMMARY_PEOPLE_POS, SUMMARY_EFFICIENCY_POS, SUMMARY_COMMENTARY_POS,
+    FONT_SIZE_TITLE_LARGE, FONT_SIZE_TITLE_MAIN, FONT_SIZE_SECTION, FONT_SIZE_LARGE,
+    FONT_SIZE_BUTTON, FONT_SIZE_BUTTON_LARGE, FONT_SIZE_BODY, FONT_SIZE_HEADING,
+    FONT_SIZE_SMALL, FONT_SIZE_INSTRUCTIONS, FONT_SIZE_COORD
 )
 
-def draw_panels(screen, hover_info, selected_info, pop_info, build_info, sandbag_info, phase_name, current_level=1, campaign_score=0):
-    """
-    Draws the top and bottom information panels.
-    """
-    # Top Panel
-    pygame.draw.rect(screen, COLOR_PANEL, (0, 0, 1200, TOP_PANEL_HEIGHT))
 
-    font = pygame.font.Font(None, 36)
+# Module-level font cache
+_CACHED_FONTS = None
+
+
+def init_fonts():
+    """
+    Initializes and returns all fonts used across the interface in a dictionary.
+    Call once at application startup after pygame.init().
+    """
+    global _CACHED_FONTS
+    _CACHED_FONTS = {
+        "title_large": pygame.font.Font(None, FONT_SIZE_TITLE_LARGE),
+        "title_main": pygame.font.Font(None, FONT_SIZE_TITLE_MAIN),
+        "section": pygame.font.Font(None, FONT_SIZE_SECTION),
+        "large": pygame.font.Font(None, FONT_SIZE_LARGE),
+        "button": pygame.font.Font(None, FONT_SIZE_BUTTON),
+        "button_large": pygame.font.Font(None, FONT_SIZE_BUTTON_LARGE),
+        "body": pygame.font.Font(None, FONT_SIZE_BODY),
+        "heading": pygame.font.Font(None, FONT_SIZE_HEADING),
+        "small": pygame.font.Font(None, FONT_SIZE_SMALL),
+        "instructions": pygame.font.Font(None, FONT_SIZE_INSTRUCTIONS),
+        "coord": pygame.font.Font(None, FONT_SIZE_COORD),
+        "cell": pygame.font.Font(None, LABEL_FONT_SIZE),
+    }
+    return _CACHED_FONTS
+
+
+def _get_font(key):
+    """Internal helper to retrieve cached font or create fallback if cache is empty."""
+    if _CACHED_FONTS is None:
+        init_fonts()
+    return _CACHED_FONTS.get(key)
+
+
+def draw_panels(screen, hover_info, selected_info, pop_info, build_info, sandbag_info, phase_name, current_level=1, campaign_score=0, font=None):
+    """
+    Draws the top information panel with campaign progress, population, and sandbag stats.
+    """
+    pygame.draw.rect(screen, COLOR_PANEL, (0, 0, WINDOW_WIDTH, TOP_PANEL_HEIGHT))
+
+    active_font = font if font is not None else _get_font("section")
 
     # Title, Level Progress, Running Score, and Phase
-    title_surf = font.render("FLOOD RESCUE", True, COLOR_TEXT)
-    screen.blit(title_surf, (20, 20))
+    title_surf = active_font.render(HEADER_TITLE, True, COLOR_TEXT)
+    screen.blit(title_surf, PANEL_TITLE_POS)
 
     level_name = LEVEL_NAMES.get(current_level, "")
-    level_surf = font.render(f"Level {current_level} / {NUM_LEVELS} - {level_name}", True, COLOR_TEXT)
-    screen.blit(level_surf, (430, 20))
+    level_surf = active_font.render(f"Level {current_level} / {NUM_LEVELS} - {level_name}", True, COLOR_TEXT)
+    screen.blit(level_surf, PANEL_LEVEL_POS)
 
-    score_surf = font.render(f"Score so far: {campaign_score}", True, COLOR_TEXT)
-    screen.blit(score_surf, (430, 55))
+    score_surf = active_font.render(f"Score so far: {campaign_score}", True, COLOR_TEXT)
+    screen.blit(score_surf, PANEL_SCORE_POS)
 
-    phase_surf = font.render(f"Phase: {phase_name.capitalize()}", True, COLOR_TEXT)
-    screen.blit(phase_surf, (1000, 20))
+    phase_surf = active_font.render(f"Phase: {phase_name.capitalize()}", True, COLOR_TEXT)
+    screen.blit(phase_surf, PANEL_PHASE_POS)
 
     # Population and Buildings info
     stats_text = f"People: {pop_info}  Buildings: {build_info}"
-    stats_surf = font.render(stats_text, True, COLOR_TEXT)
-    screen.blit(stats_surf, (20, 40))
+    stats_surf = active_font.render(stats_text, True, COLOR_TEXT)
+    screen.blit(stats_surf, (20, 60))
 
     # Sandbag counter
-    sb_surf = font.render(sandbag_info, True, COLOR_TEXT)
-    screen.blit(sb_surf, (20, 60))
+    sb_surf = active_font.render(sandbag_info, True, COLOR_TEXT)
+    screen.blit(sb_surf, (430, 60))
 
     # Hover and Selected readout
     info_text = f"Hover: {hover_info}  Selected: {selected_info}"
-    info_surf = font.render(info_text, True, COLOR_TEXT)
-    screen.blit(info_surf, (20, 80))
+    info_surf = active_font.render(info_text, True, COLOR_TEXT)
+    screen.blit(info_surf, (800, 60))
 
-    # Bottom Panel
-    pygame.draw.rect(screen, COLOR_PANEL, (0, 1200 - BOTTOM_PANEL_HEIGHT, 1200, BOTTOM_PANEL_HEIGHT))
+    # Bottom Panel background
+    pygame.draw.rect(screen, COLOR_PANEL, (0, WINDOW_HEIGHT - BOTTOM_PANEL_HEIGHT, WINDOW_WIDTH, BOTTOM_PANEL_HEIGHT))
 
-def draw_grid(screen, grid):
+
+def draw_grid(screen, grid_data):
     """
-    Draws the 2D grid based on its data.
+    Renders all 300 cells of the 30 x 10 grid with cell background colors and gridlines.
     """
     for row in range(ROWS):
         for col in range(COLS):
-            cell_type = grid[row][col]
+            cell_type = grid_data[row][col]
             colour = CELL_COLORS.get(cell_type, (255, 0, 255))
 
             x = GRID_ORIGIN_X + (col * CELL_SIZE)
@@ -77,40 +136,43 @@ def draw_grid(screen, grid):
             pygame.draw.rect(screen, colour, (x, y, CELL_SIZE, CELL_SIZE))
             pygame.draw.rect(screen, COLOR_GRID_LINE, (x, y, CELL_SIZE, CELL_SIZE), 1)
 
-def draw_cell_labels(screen, grid):
+
+def draw_cell_labels(screen, grid_data, font=None):
     """
-    Draws labels inside building cells.
+    Renders identifying letters (H, S, +, SH, B) centered inside each non-empty cell.
     """
-    font = pygame.font.Font(None, LABEL_FONT_SIZE)
+    active_font = font if font is not None else _get_font("cell")
     for row in range(ROWS):
         for col in range(COLS):
-            cell_type = grid[row][col]
+            cell_type = grid_data[row][col]
             label = CELL_LABELS.get(cell_type, "")
             if label:
-                text_surf = font.render(label, True, COLOR_LABEL_TEXT)
+                text_surf = active_font.render(label, True, COLOR_LABEL_TEXT)
                 x = GRID_ORIGIN_X + (col * CELL_SIZE) + (CELL_SIZE // 2) - (text_surf.get_width() // 2)
                 y = GRID_ORIGIN_Y + (row * CELL_SIZE) + (CELL_SIZE // 2) - (text_surf.get_height() // 2)
                 screen.blit(text_surf, (x, y))
 
-def draw_coordinates(screen):
+
+def draw_coordinates(screen, font=None):
     """
-    Draws column and row numbers around the grid.
+    Draws column (0..29) and row (0..9) coordinate numbers around the grid perimeter.
     """
-    font = pygame.font.Font(None, 20)
+    active_font = font if font is not None else _get_font("coord")
     for col in range(COLS):
         x = GRID_ORIGIN_X + (col * CELL_SIZE) + (CELL_SIZE // 2) - 5
         y = GRID_ORIGIN_Y - 20
-        surf = font.render(str(col), True, COLOR_TEXT)
+        surf = active_font.render(str(col), True, COLOR_TEXT)
         screen.blit(surf, (x, y))
     for row in range(ROWS):
         x = GRID_ORIGIN_X - 20
         y = GRID_ORIGIN_Y + (row * CELL_SIZE) + (CELL_SIZE // 2) - 5
-        surf = font.render(str(row), True, COLOR_TEXT)
+        surf = active_font.render(str(row), True, COLOR_TEXT)
         screen.blit(surf, (x, y))
+
 
 def draw_highlight(screen, cell, color):
     """
-    Draws a highlight border around a specific (row, col) cell.
+    Draws a border highlight around a specified (row, col) grid cell.
     """
     if cell is None:
         return
@@ -119,9 +181,10 @@ def draw_highlight(screen, cell, color):
     y = GRID_ORIGIN_Y + (row * CELL_SIZE)
     pygame.draw.rect(screen, color, (x, y, CELL_SIZE, CELL_SIZE), 3)
 
-def draw_legend(screen):
+
+def draw_legend(screen, font=None):
     """
-    Draws a color legend in the bottom panel.
+    Draws the colored entity legend in the bottom control panel.
     """
     legend_items = [
         ("House", "house"),
@@ -129,18 +192,22 @@ def draw_legend(screen):
         ("Hospital", "hospital"),
         ("Shelter", "shelter")
     ]
-    font = pygame.font.Font(None, 30)
-    start_x = 50
-    start_y = 1200 - BOTTOM_PANEL_HEIGHT + 30
+    active_font = font if font is not None else _get_font("button")
+    start_x = LEGEND_START_X
+    start_y = WINDOW_HEIGHT - BOTTOM_PANEL_HEIGHT + 25
+
     for i, (name, type_key) in enumerate(legend_items):
         color = CELL_COLORS[type_key]
-        pygame.draw.rect(screen, color, (start_x + (i * 150), start_y, 20, 20))
-        text_surf = font.render(name, True, COLOR_TEXT)
-        screen.blit(text_surf, (start_x + (i * 150) + 30, start_y - 5))
+        item_x = start_x + (i * LEGEND_SPACING)
+        pygame.draw.rect(screen, color, (item_x, start_y, LEGEND_BOX_SIZE, LEGEND_BOX_SIZE))
+        pygame.draw.rect(screen, COLOR_GRID_LINE, (item_x, start_y, LEGEND_BOX_SIZE, LEGEND_BOX_SIZE), 1)
+        text_surf = active_font.render(name, True, COLOR_TEXT)
+        screen.blit(text_surf, (item_x + LEGEND_BOX_SIZE + 8, start_y - 2))
 
-def draw_button(screen, rect, text, font, active, hovered):
+
+def draw_button(screen, rect, text, font, active=False, hovered=False):
     """
-    Draws a button with state-based coloring.
+    Renders an interactive button with normal, active, or hovered styling.
     """
     color = COLOR_BTN_NORMAL
     if active:
@@ -152,24 +219,25 @@ def draw_button(screen, rect, text, font, active, hovered):
     pygame.draw.rect(screen, COLOR_GRID_LINE, rect, 2)
 
     text_surf = font.render(text, True, COLOR_BTN_TEXT)
-    text_rect = text_surf.get_rect(center=(rect[0] + rect[2]//2, rect[1] + rect[3]//2))
+    text_rect = text_surf.get_rect(center=(rect[0] + rect[2] // 2, rect[1] + rect[3] // 2))
     screen.blit(text_surf, text_rect)
+
 
 def draw_message(screen, text, font):
     """
-    Draws a feedback message in the bottom panel.
+    Draws a transient player feedback message centered in the bottom panel.
     """
     if not text:
         return
     text_surf = font.render(text, True, COLOR_MSG_TEXT)
-    text_rect = text_surf.get_rect(center=(600, 1200 - BOTTOM_PANEL_HEIGHT // 2))
+    text_rect = text_surf.get_rect(center=(MESSAGE_CENTER_POS[0], WINDOW_HEIGHT - BOTTOM_PANEL_HEIGHT // 2))
     screen.blit(text_surf, text_rect)
+
 
 def draw_safe_unsafe(screen, entities):
     """
-    Results phase: outlines buildings green if connected, red if not.
+    Results phase: outlines connected buildings in green (safe) and disconnected in red (unsafe).
     """
-    font = pygame.font.Font(None, 24)
     for e in entities:
         if e["type"] == "shelter":
             continue
@@ -181,12 +249,13 @@ def draw_safe_unsafe(screen, entities):
         color = COLOR_SAFE if e["connected"] else COLOR_UNSAFE
         pygame.draw.rect(screen, color, (x, y, CELL_SIZE, CELL_SIZE), 4)
 
+
 def draw_confirm_dialog(screen, remaining, font):
     """
-    Draws a dimmed overlay and a centered confirmation box.
+    Renders the modal confirmation dialog with dark semi-transparent backdrop.
     """
     # 1. Dimmer overlay
-    overlay = pygame.Surface((1200, 750), pygame.SRCALPHA)
+    overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.SRCALPHA)
     overlay.fill(COLOR_DIMMER)
     screen.blit(overlay, (0, 0))
 
@@ -194,101 +263,61 @@ def draw_confirm_dialog(screen, remaining, font):
     pygame.draw.rect(screen, COLOR_DIALOG_BG, DIALOG_RECT)
     pygame.draw.rect(screen, COLOR_GRID_LINE, DIALOG_RECT, 2)
 
-    # Title
+    # 3. Title
     title_surf = font.render(DIALOG_TITLE, True, COLOR_TEXT)
-    title_rect = title_surf.get_rect(center=(600, 250 + 50))
+    title_rect = title_surf.get_rect(center=DIALOG_TITLE_POS)
     screen.blit(title_surf, title_rect)
 
-    # Sandbags left text
+    # 4. Sandbags left text
     info_text = f"Sandbags left: {remaining}"
     info_surf = font.render(info_text, True, COLOR_TEXT)
-    info_rect = info_surf.get_rect(center=(600, 250 + 100))
+    info_rect = info_surf.get_rect(center=DIALOG_SUBTITLE_POS)
     screen.blit(info_surf, info_rect)
 
-    # Buttons
-    # YES
-    pygame.draw.rect(screen, COLOR_BTN_NORMAL, DIALOG_YES_RECT)
-    yes_surf = font.render(DIALOG_YES_LABEL, True, COLOR_BTN_TEXT)
-    yes_rect = yes_surf.get_rect(center=(DIALOG_YES_RECT[0] + 60, DIALOG_YES_RECT[1] + 25))
-    screen.blit(yes_surf, yes_rect)
+    # 5. Buttons
+    draw_button(screen, DIALOG_YES_RECT, DIALOG_YES_LABEL, font, False, False)
+    draw_button(screen, DIALOG_CANCEL_RECT, DIALOG_CANCEL_LABEL, font, False, False)
 
-    # CANCEL
-    pygame.draw.rect(screen, COLOR_BTN_NORMAL, DIALOG_CANCEL_RECT)
-    cancel_surf = font.render(DIALOG_CANCEL_LABEL, True, COLOR_BTN_TEXT)
-    cancel_rect = cancel_surf.get_rect(center=(DIALOG_CANCEL_RECT[0] + 60, DIALOG_CANCEL_RECT[1] + 25))
-    screen.blit(cancel_surf, cancel_rect)
 
 def draw_results_panel(screen, breakdown, can_continue, font, current_level=1, continue_label=BTN_CONTINUE_LABEL):
     """
-    Draws a detailed breakdown in the bottom panel.
+    Draws a detailed score and evacuation breakdown in the bottom panel during Results phase.
     """
-    # Bottom Panel BG
-    pygame.draw.rect(screen, COLOR_PANEL, (0, 1200 - BOTTOM_PANEL_HEIGHT, 1200, BOTTOM_PANEL_HEIGHT))
+    pygame.draw.rect(screen, COLOR_PANEL, (0, WINDOW_HEIGHT - BOTTOM_PANEL_HEIGHT, WINDOW_WIDTH, BOTTOM_PANEL_HEIGHT))
 
-    # Data layout (columns)
-    col_width = 200
-    start_x = 50
-    start_y = 1200 - BOTTOM_PANEL_HEIGHT + 30
+    start_x = RESULTS_COL1_X
+    start_y = WINDOW_HEIGHT - BOTTOM_PANEL_HEIGHT + 15
 
-    # Row 1: Basic Stats
     lines = [
-        (f"Level: {current_level}", f"Pop: {breakdown['total_population']}"),
-        (f"Saved: {breakdown['saved_people']}", f"Unsaved: {breakdown['unsaved_people']}"),
-        (f"H: {breakdown['houses_connected']} S: {breakdown['schools_connected']} Hosp: {breakdown['hospitals_connected']}", ""),
-        (f"Budget: {breakdown['sandbags_allocated']} Used: {breakdown['sandbags_used']} Rem: {breakdown['sandbags_remaining']}", ""),
-        (f"Pop Score: {breakdown['population_score']} Bonus: {breakdown['efficiency_bonus']}", f"FINAL: {breakdown['final_score']}"),
+        (f"Level {current_level}: {'PASSED' if breakdown['passed'] else 'FAILED'}", f"Total Population: {breakdown['total_population']}"),
+        (f"People Saved: {breakdown['saved_people']}", f"Unsaved: {breakdown['unsaved_people']}"),
+        (f"Connected: H:{breakdown['houses_connected']} S:{breakdown['schools_connected']} +:{breakdown['hospitals_connected']}", f"Sandbags: {breakdown['sandbags_used']} used / {breakdown['sandbags_allocated']} total ({breakdown['sandbags_remaining']} left)"),
+        (f"Pop Score: {breakdown['population_score']}", f"Bonus: {breakdown['efficiency_bonus']}  |  FINAL SCORE: {breakdown['final_score']}")
     ]
 
-    for i, (left, right) in enumerate(lines):
-        # Left side
-        l_surf = font.render(left, True, COLOR_TEXT)
-        screen.blit(l_surf, (start_x + (i % 2)*200 if i < 2 else start_x, start_y + (i // 2)*30)) # a bit simplified
-        # This rendering is tricky, let's just use a simpler list
-
-    # Re-doing the lines for clarity
     y_offset = 0
-    for i, (left, right) in enumerate(lines):
+    for left, right in lines:
         l_surf = font.render(left, True, COLOR_TEXT)
         screen.blit(l_surf, (start_x, start_y + y_offset))
         if right:
             r_surf = font.render(right, True, COLOR_TEXT)
-            screen.blit(r_surf, (start_x + 300, start_y + y_offset))
-        y_offset += 25
-
-    # Bonus explanation if failed
-    if not breakdown["passed"]:
-        # We call the game.bonus_explanation in main, so we just draw it here
-        # Actually, let's pass it as an argument to be pure
-        pass
+            screen.blit(r_surf, (RESULTS_COL2_X, start_y + y_offset))
+        y_offset += 24
 
     # Buttons
-    # RETRY
-    pygame.draw.rect(screen, COLOR_BTN_NORMAL, BTN_RETRY_RECT)
-    retry_surf = font.render(BTN_RETRY_LABEL, True, COLOR_BTN_TEXT)
-    retry_rect = retry_surf.get_rect(center=(BTN_RETRY_RECT[0] + 100, BTN_RETRY_RECT[1] + 25))
-    screen.blit(retry_surf, retry_rect)
-
-    # CONTINUE / VIEW FINAL SUMMARY
+    draw_button(screen, BTN_RETRY_RECT, BTN_RETRY_LABEL, font, False, False)
     if can_continue:
-        pygame.draw.rect(screen, COLOR_BTN_NORMAL, BTN_CONTINUE_RECT)
-        cont_surf = font.render(continue_label, True, COLOR_BTN_TEXT)
-        cont_rect = cont_surf.get_rect(center=(BTN_CONTINUE_RECT[0] + 100, BTN_CONTINUE_RECT[1] + 25))
-        screen.blit(cont_surf, cont_rect)
+        draw_button(screen, BTN_CONTINUE_RECT, continue_label, font, False, False)
 
-
-# ---- F07: Flood Animation Drawing ----
 
 def draw_flood(screen, flooded_cells, front_col):
     """
-    Draws semi-transparent water over every cell in flooded_cells.
-    Uses ONE reusable cell-sized RGBA surface for efficiency (not 300 new surfaces).
-    front_col is the column index of the wave's leading edge (-1 for no highlight).
+    Renders semi-transparent water overlay on all flooded cells.
+    Uses a reusable cell-sized surface for 60 FPS performance.
     """
-    # Create one reusable cell-sized surface with alpha support
     water_cell = pygame.Surface((CELL_SIZE, CELL_SIZE), pygame.SRCALPHA)
 
     for row, col in flooded_cells:
-        # Use brighter colour for the wave front, normal for the rest
         if col == front_col:
             water_cell.fill(COLOR_WATER_FRONT)
         else:
@@ -301,8 +330,7 @@ def draw_flood(screen, flooded_cells, front_col):
 
 def draw_flooded_buildings(screen, entities, flooded_cells):
     """
-    Draws a red outline on every non-shelter building whose cell is in flooded_cells.
-    Connected buildings get no highlight during flooding (green appears in results, F06).
+    Highlights non-shelter buildings with red outlines if reached by floodwaters.
     """
     for e in entities:
         if e["type"] == "shelter":
@@ -315,50 +343,39 @@ def draw_flooded_buildings(screen, entities, flooded_cells):
             pygame.draw.rect(screen, COLOR_UNSAFE, (x, y, CELL_SIZE, CELL_SIZE), 4)
 
 
-def draw_flood_banner(screen, font):
+def draw_flood_banner(screen, font, skip_font=None):
     """
-    Draws the flooding banner and skip hint in the bottom panel area.
-    Replaces buttons and legend during the flooding phase.
+    Draws the flooding banner and skip instructions in the bottom panel.
     """
-    # Bottom panel background
-    pygame.draw.rect(screen, COLOR_PANEL, (0, 1200 - BOTTOM_PANEL_HEIGHT, 1200, BOTTOM_PANEL_HEIGHT))
+    pygame.draw.rect(screen, COLOR_PANEL, (0, WINDOW_HEIGHT - BOTTOM_PANEL_HEIGHT, WINDOW_WIDTH, BOTTOM_PANEL_HEIGHT))
 
-    # Banner text centred in the bottom panel
     banner_surf = font.render(MSG_FLOODING_BANNER, True, COLOR_TEXT)
-    banner_rect = banner_surf.get_rect(center=(600, 1200 - BOTTOM_PANEL_HEIGHT + 50))
+    banner_rect = banner_surf.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT - BOTTOM_PANEL_HEIGHT + 45))
     screen.blit(banner_surf, banner_rect)
 
-    # Skip hint below the banner
-    skip_font = pygame.font.Font(None, 24)
-    skip_surf = skip_font.render(MSG_FLOODING_SKIP, True, COLOR_MSG_TEXT)
-    skip_rect = skip_surf.get_rect(center=(600, 1200 - BOTTOM_PANEL_HEIGHT + 90))
+    active_skip_font = skip_font if skip_font is not None else _get_font("small")
+    skip_surf = active_skip_font.render(MSG_FLOODING_SKIP, True, COLOR_MSG_TEXT)
+    skip_rect = skip_surf.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT - BOTTOM_PANEL_HEIGHT + 85))
     screen.blit(skip_surf, skip_rect)
 
 
-# ---- F10: Final Campaign Summary Screen ----
-
-def draw_final_summary(screen, summary, font_title, font_table, font_large, play_again_hovered=False):
+def draw_final_summary(screen, summary, font_title, font_table, font_large, play_again_hovered=False, menu_hovered=False):
     """
-    Renders the full-window end-game summary screen with level breakdown table,
-    aggregate metrics, and the PLAY AGAIN button.
+    Renders the full-screen end-game summary screen with tabular breakdown and dual buttons.
     """
-    # 1. Background fill
     screen.fill(COLOR_BG)
 
-    # 2. Title & Subtitle
     title_surf = font_title.render(SUMMARY_TITLE, True, COLOR_SUMMARY_TITLE)
-    title_rect = title_surf.get_rect(center=(600, 55))
+    title_rect = title_surf.get_rect(center=SUMMARY_TITLE_POS)
     screen.blit(title_surf, title_rect)
 
     subtitle_surf = font_table.render(SUMMARY_SUBTITLE, True, COLOR_SUMMARY_SUBTITLE)
-    subtitle_rect = subtitle_surf.get_rect(center=(600, 105))
+    subtitle_rect = subtitle_surf.get_rect(center=SUMMARY_SUBTITLE_POS)
     screen.blit(subtitle_surf, subtitle_rect)
 
-    # 3. Table Header Divider Line
-    table_width = sum(SUMMARY_COL_WIDTHS)  # 900
+    table_width = sum(SUMMARY_COL_WIDTHS)
     pygame.draw.line(screen, COLOR_SUMMARY_LINE, (SUMMARY_TABLE_X, 145), (SUMMARY_TABLE_X + table_width, 145), 2)
 
-    # 4. Table Column Headers
     curr_x = SUMMARY_TABLE_X
     for i, heading in enumerate(SUMMARY_COL_HEADINGS):
         col_w = SUMMARY_COL_WIDTHS[i]
@@ -369,7 +386,6 @@ def draw_final_summary(screen, summary, font_title, font_table, font_large, play
 
     pygame.draw.line(screen, COLOR_SUMMARY_LINE, (SUMMARY_TABLE_X, SUMMARY_TABLE_Y + 35), (SUMMARY_TABLE_X + table_width, SUMMARY_TABLE_Y + 35), 1)
 
-    # 5. Table Rows (Level Data)
     for row_idx, r in enumerate(summary["rows"]):
         row_y = 205 + row_idx * SUMMARY_ROW_HEIGHT
         curr_x = SUMMARY_TABLE_X
@@ -391,29 +407,26 @@ def draw_final_summary(screen, summary, font_title, font_table, font_large, play
             screen.blit(cell_surf, cell_rect)
             curr_x += col_w
 
-    # 6. Table Bottom Divider Line
     pygame.draw.line(screen, COLOR_SUMMARY_LINE, (SUMMARY_TABLE_X, 342), (SUMMARY_TABLE_X + table_width, 342), 2)
 
-    # 7. Aggregate Highlights
     total_surf = font_large.render(f"TOTAL SCORE: {summary['total_score']}", True, COLOR_TOTAL_SCORE)
-    total_rect = total_surf.get_rect(center=(600, 395))
+    total_rect = total_surf.get_rect(center=SUMMARY_TOTAL_SCORE_POS)
     screen.blit(total_surf, total_rect)
 
-    people_font = pygame.font.Font(None, 32)
+    people_font = _get_font("button_large")
     people_surf = people_font.render(f"People Saved: {summary['total_people_saved']} / {summary['total_population']}", True, COLOR_TEXT)
-    people_rect = people_surf.get_rect(center=(600, 455))
+    people_rect = people_surf.get_rect(center=SUMMARY_PEOPLE_POS)
     screen.blit(people_surf, people_rect)
 
-    eff_font = pygame.font.Font(None, 28)
+    eff_font = _get_font("body")
     eff_surf = eff_font.render(
         f"Sandbags Conserved: {summary['sandbags_remaining']} / {summary['sandbags_allocated']}  ({summary['efficiency_percent']}% efficiency)",
         True, COLOR_SUMMARY_SUBTITLE
     )
-    eff_rect = eff_surf.get_rect(center=(600, 500))
+    eff_rect = eff_surf.get_rect(center=SUMMARY_EFFICIENCY_POS)
     screen.blit(eff_surf, eff_rect)
 
-    # Performance commentary
-    note_font = pygame.font.Font(None, 24)
+    note_font = _get_font("small")
     if summary["efficiency_percent"] >= 20.0:
         eff_note = "Outstanding performance! Maximum efficiency demonstrated."
     elif summary["efficiency_percent"] > 0.0:
@@ -422,9 +435,61 @@ def draw_final_summary(screen, summary, font_title, font_table, font_large, play
         eff_note = "Evacuation succeeded, though all available sandbags were used."
 
     note_surf = note_font.render(eff_note, True, COLOR_TEXT)
-    note_rect = note_surf.get_rect(center=(600, 545))
+    note_rect = note_surf.get_rect(center=SUMMARY_COMMENTARY_POS)
     screen.blit(note_surf, note_rect)
 
-    # 8. PLAY AGAIN Button
-    btn_font = pygame.font.Font(None, 32)
-    draw_button(screen, BTN_PLAY_AGAIN_RECT, BTN_PLAY_AGAIN_LABEL, btn_font, False, play_again_hovered)
+    btn_font = _get_font("button_large")
+    draw_button(screen, SUMMARY_PLAY_AGAIN_RECT, BTN_PLAY_AGAIN_LABEL, btn_font, False, play_again_hovered)
+    draw_button(screen, SUMMARY_MENU_RECT, BTN_MENU_LABEL, btn_font, False, menu_hovered)
+
+
+def draw_menu(screen, hovered_btn_name, font_title, font_tagline, font_btn):
+    """
+    Renders the full-screen Main Menu with Title, Tagline, and 3 Navigation Buttons.
+    """
+    screen.fill(COLOR_BG)
+
+    title_surf = font_title.render(MENU_TITLE, True, COLOR_SUMMARY_TITLE)
+    title_rect = title_surf.get_rect(center=MENU_TITLE_POS)
+    screen.blit(title_surf, title_rect)
+
+    tagline_surf = font_tagline.render(MENU_TAGLINE, True, COLOR_SUMMARY_SUBTITLE)
+    tagline_rect = tagline_surf.get_rect(center=MENU_TAGLINE_POS)
+    screen.blit(tagline_surf, tagline_rect)
+
+    for btn_name, rect in MENU_BUTTONS.items():
+        label = MENU_CAPTIONS.get(btn_name, "")
+        is_hovered = (btn_name == hovered_btn_name)
+        draw_button(screen, rect, label, font_btn, False, is_hovered)
+
+
+def draw_instructions(screen, sections, back_hovered, font_title, font_heading, font_body, font_btn):
+    """
+    Renders the full-screen Instructions screen arranged into two columns with a Back button.
+    """
+    screen.fill(COLOR_BG)
+
+    title_surf = font_title.render(INSTRUCTIONS_TITLE, True, COLOR_SUMMARY_TITLE)
+    title_rect = title_surf.get_rect(center=INSTRUCTIONS_TITLE_POS)
+    screen.blit(title_surf, title_rect)
+
+    col1_sections = sections[:3]
+    col2_sections = sections[3:]
+
+    for col_idx, col_sects in enumerate([col1_sections, col2_sections]):
+        col_x = INSTRUCTIONS_COL1_X if col_idx == 0 else INSTRUCTIONS_COL2_X
+        curr_y = INSTRUCTIONS_START_Y
+
+        for title, lines in col_sects:
+            h_surf = font_heading.render(title, True, COLOR_SUMMARY_HEADER)
+            screen.blit(h_surf, (col_x, curr_y))
+            curr_y += 26
+
+            for line in lines:
+                line_surf = font_body.render(line, True, COLOR_TEXT)
+                screen.blit(line_surf, (col_x, curr_y))
+                curr_y += INSTRUCTIONS_LINE_HEIGHT
+
+            curr_y += INSTRUCTIONS_SECTION_GAP
+
+    draw_button(screen, INSTRUCTIONS_BACK_RECT, INSTRUCTIONS_BACK_LABEL, font_btn, False, back_hovered)

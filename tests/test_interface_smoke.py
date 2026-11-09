@@ -8,17 +8,20 @@ os.environ["SDL_VIDEODRIVER"] = "dummy"
 
 import pygame
 import pytest
-import config
 from config import (
-    ROWS, COLS, CELL_EMPTY, CELL_SANDBAG, CELL_SHELTER, CELL_HOUSE,
+    ROWS, COLS, CELL_SANDBAG, CELL_SHELTER, CELL_HOUSE,
     BTN_SANDBAG_RECT, BTN_SANDBAG_LABEL, BTN_RESET_RECT, BTN_RESET_LABEL,
     BTN_CONFIRM_RECT, BTN_CONFIRM_LABEL, BTN_CONTINUE_LABEL, BTN_SUMMARY_LABEL,
-    COLOR_HOVER, COLOR_SELECTED
+    COLOR_HOVER, COLOR_SELECTED, INSTRUCTIONS_BACK_RECT
 )
 from grid import create_grid
 from entities import place_entity
 import interface
 import campaign
+import screens
+from config import (
+    MENU_BUTTONS, INSTRUCTIONS_COL_WIDTH
+)
 
 
 @pytest.fixture(scope="module")
@@ -149,8 +152,9 @@ def test_smoke_final_summary(screen):
         3: {"saved_people": 40, "total_population": 40, "sandbags_used": 35, "sandbags_allocated": 40, "population_score": 200, "efficiency_bonus": 25, "final_score": 225}
     }
     s_full = campaign.build_final_summary(c_full)
-    interface.draw_final_summary(screen, s_full, font_title, font_table, font_large, play_again_hovered=True)
-    interface.draw_final_summary(screen, s_full, font_title, font_table, font_large, play_again_hovered=False)
+    interface.draw_final_summary(screen, s_full, font_title, font_table, font_large, play_again_hovered=True, menu_hovered=False)
+    interface.draw_final_summary(screen, s_full, font_title, font_table, font_large, play_again_hovered=False, menu_hovered=True)
+    interface.draw_final_summary(screen, s_full, font_title, font_table, font_large, play_again_hovered=False, menu_hovered=False)
 
     # 2. Partial campaign (Level 1 only)
     c_part = campaign.create_campaign()
@@ -166,15 +170,65 @@ def test_smoke_final_summary(screen):
     interface.draw_final_summary(screen, s_empty, font_title, font_table, font_large)
 
 
-# ---- Smoke Test 6: Audit config symbols referenced by interface and main ----
+# ---- Smoke Test 6: Main Menu Screen (F11) ----
+
+def test_smoke_menu(screen):
+    """Draws main menu for no hover and for each of the three button hovers without error."""
+    font_title = pygame.font.Font(None, 64)
+    font_tagline = pygame.font.Font(None, 30)
+    font_btn = pygame.font.Font(None, 32)
+
+    # No hover
+    interface.draw_menu(screen, None, font_title, font_tagline, font_btn)
+
+    # Each button hover
+    for btn_name in MENU_BUTTONS.keys():
+        interface.draw_menu(screen, btn_name, font_title, font_tagline, font_btn)
+
+
+# ---- Smoke Test 7: Instructions Screen (F11) ----
+
+def test_smoke_instructions(screen):
+    """Draws instructions screen with real sections, with and without back hover."""
+    font_title = pygame.font.Font(None, 42)
+    font_heading = pygame.font.Font(None, 26)
+    font_body = pygame.font.Font(None, 22)
+    font_btn = pygame.font.Font(None, 30)
+
+    sections = screens.build_instruction_sections()
+
+    # Back not hovered
+    interface.draw_instructions(screen, sections, False, font_title, font_heading, font_body, font_btn)
+
+    # Back hovered
+    interface.draw_instructions(screen, sections, True, font_title, font_heading, font_body, font_btn)
+
+
+# ---- Smoke Test 8: Instruction Lines Fit Column Width (F11) ----
+
+def test_smoke_instruction_lines_fit_column(screen):
+    """Verifies that every instruction line fits within INSTRUCTIONS_COL_WIDTH when rendered."""
+    font_body = pygame.font.Font(None, 22)
+    sections = screens.build_instruction_sections()
+
+    for sec_title, lines in sections:
+        for line in lines:
+            rendered_width, _ = font_body.size(line)
+            assert rendered_width <= INSTRUCTIONS_COL_WIDTH, (
+                f"Instruction line in '{sec_title}' exceeds column width ({INSTRUCTIONS_COL_WIDTH}px): "
+                f"'{line}' (width: {rendered_width}px)"
+            )
+
+
+# ---- Smoke Test 9: Audit config symbols referenced by interface, main, and screens ----
 
 def test_smoke_config_symbols_exist():
-    """Audits that every symbol imported from config by interface.py and main.py actually exists."""
+    """Audits that every symbol imported from config by interface.py, main.py, and screens.py exists."""
     import symtable
     import builtins
     import importlib
 
-    for mod_name in ("interface", "main"):
+    for mod_name in ("interface", "main", "screens"):
         mod = importlib.import_module(mod_name)
         with open(f"{mod_name}.py", "r") as f:
             src = f.read()
@@ -190,4 +244,117 @@ def test_smoke_config_symbols_exist():
                 walk(child)
 
         walk(top)
+
+
+# ---- Smoke Test 10: Headless Main Loop Screen Transitions (Bug Regression) ----
+
+def test_smoke_main_menu_button_start_game(monkeypatch):
+    """
+    Tests that clicking START GAME in main.main() transitions cleanly
+    from SCREEN_MENU to SCREEN_GAME without UnboundLocalError on hovered_cell.
+    """
+    import main
+    pygame.init()
+    start_rect = MENU_BUTTONS["start"]
+    click_x = start_rect[0] + 10
+    click_y = start_rect[1] + 10
+
+    monkeypatch.setattr(pygame.mouse, "get_pos", lambda: (click_x, click_y))
+
+    flips = [0]
+    orig_flip = pygame.display.flip
+
+    def track_flip():
+        flips[0] += 1
+        orig_flip()
+        if flips[0] >= 3:
+            pygame.event.post(pygame.event.Event(pygame.QUIT))
+
+    monkeypatch.setattr(pygame.display, "flip", track_flip)
+    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"button": 1, "pos": (click_x, click_y)}))
+
+    main.main()
+    assert flips[0] >= 3
+
+
+def test_smoke_main_menu_button_instructions_and_back(monkeypatch):
+    """
+    Tests that clicking INSTRUCTIONS in main.main() transitions to SCREEN_INSTRUCTIONS,
+    and then clicking BACK transitions back to SCREEN_MENU without UnboundLocalError.
+    """
+    import main
+    pygame.init()
+    instr_rect = MENU_BUTTONS["instructions"]
+    back_rect = INSTRUCTIONS_BACK_RECT
+
+    curr_pos = [instr_rect[0] + 10, instr_rect[1] + 10]
+    monkeypatch.setattr(pygame.mouse, "get_pos", lambda: tuple(curr_pos))
+
+    flips = [0]
+    orig_flip = pygame.display.flip
+
+    def track_flip():
+        flips[0] += 1
+        orig_flip()
+        if flips[0] == 1:
+            # We are now on instructions screen; move mouse to BACK button and click it
+            curr_pos[0] = back_rect[0] + 10
+            curr_pos[1] = back_rect[1] + 10
+            pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"button": 1, "pos": tuple(curr_pos)}))
+        elif flips[0] >= 3:
+            pygame.event.post(pygame.event.Event(pygame.QUIT))
+
+    monkeypatch.setattr(pygame.display, "flip", track_flip)
+    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"button": 1, "pos": tuple(curr_pos)}))
+
+    main.main()
+    assert flips[0] >= 3
+
+
+def test_smoke_main_menu_button_exit(monkeypatch):
+    """
+    Tests that clicking EXIT terminates main.main() cleanly.
+    """
+    import main
+    pygame.init()
+    exit_rect = MENU_BUTTONS["exit"]
+    click_x = exit_rect[0] + 10
+    click_y = exit_rect[1] + 10
+
+    monkeypatch.setattr(pygame.mouse, "get_pos", lambda: (click_x, click_y))
+    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"button": 1, "pos": (click_x, click_y)}))
+
+    main.main()
+
+
+def test_smoke_main_instructions_esc_key(monkeypatch):
+    """
+    Tests that pressing ESC on the INSTRUCTIONS screen transitions back to SCREEN_MENU cleanly.
+    """
+    import main
+    pygame.init()
+    instr_rect = MENU_BUTTONS["instructions"]
+    click_x = instr_rect[0] + 10
+    click_y = instr_rect[1] + 10
+
+    monkeypatch.setattr(pygame.mouse, "get_pos", lambda: (click_x, click_y))
+
+    flips = [0]
+    orig_flip = pygame.display.flip
+
+    def track_flip():
+        flips[0] += 1
+        orig_flip()
+        if flips[0] == 1:
+            # Press ESC to return to menu
+            pygame.event.post(pygame.event.Event(pygame.KEYDOWN, {"key": pygame.K_ESCAPE}))
+        elif flips[0] >= 3:
+            pygame.event.post(pygame.event.Event(pygame.QUIT))
+
+    monkeypatch.setattr(pygame.display, "flip", track_flip)
+    pygame.event.post(pygame.event.Event(pygame.MOUSEBUTTONDOWN, {"button": 1, "pos": (click_x, click_y)}))
+
+    main.main()
+    assert flips[0] >= 3
+
 

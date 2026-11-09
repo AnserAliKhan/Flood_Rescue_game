@@ -1,0 +1,2 @@
+# System fonts via pygame.font.Font(None, size) are used for all typography.
+

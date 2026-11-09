@@ -32,6 +32,20 @@ CELL_SANDBAG = "sandbag"
 # Diagonals are intentionally absent per connectivity rules
 DIRECTIONS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
+# Screen names (F11: App-level screens, separate from game phases)
+SCREEN_MENU = "menu"
+SCREEN_INSTRUCTIONS = "instructions"
+SCREEN_GAME = "game"
+
+# Allowed screen transitions (SPEC section 11 / F11)
+# Note: Exit is not a screen (it quits the app).
+# "game to menu" is only allowed from the summary phase (enforced by screens.can_return_to_menu).
+ALLOWED_SCREEN_TRANSITIONS = {
+    SCREEN_MENU:         [SCREEN_INSTRUCTIONS, SCREEN_GAME],
+    SCREEN_INSTRUCTIONS: [SCREEN_MENU],
+    SCREEN_GAME:         [SCREEN_MENU],
+}
+
 # Game Phases
 PHASE_PLANNING = "planning"
 PHASE_CONFIRMING = "confirming"
@@ -50,13 +64,12 @@ ALLOWED_TRANSITIONS = {
     PHASE_SUMMARY:    [],
 }
 
-CURRENT_LEVEL = 1  # Legacy constant for earlier unit tests; campaign dictionary manages active level in F10+
-
 # Human-readable level titles
 LEVEL_NAMES = {1: "Easy", 2: "Medium", 3: "Hard"}
 
-# Developer debug hotkeys flag (keys 1/2/3 in planning)
-DEBUG_LEVEL_KEYS = False
+# Developer debug flags
+DEBUG_LEVEL_KEYS = False  # Keys 1/2/3 jump to levels during planning phase (debug only)
+DEBUG_PRINT = False       # Print baseline and budget info to terminal when loading levels
 
 # Colours (RGB)
 COLOR_BG = (30, 30, 50)        # Dark blue-grey background
@@ -127,6 +140,7 @@ BTN_RETRY_LABEL = "RETRY LEVEL"
 BTN_CONTINUE_LABEL = "CONTINUE TO NEXT LEVEL"
 BTN_SUMMARY_LABEL = "VIEW FINAL SUMMARY"
 BTN_PLAY_AGAIN_LABEL = "PLAY AGAIN"
+BTN_MENU_LABEL = "MAIN MENU"
 DIALOG_TITLE = "Confirm Routes?"
 DIALOG_YES_LABEL = "START FLOOD"
 DIALOG_CANCEL_LABEL = "KEEP PLANNING"
@@ -139,7 +153,100 @@ SUMMARY_TABLE_X = 150
 SUMMARY_TABLE_Y = 160
 SUMMARY_ROW_HEIGHT = 45
 SUMMARY_COL_WIDTHS = [120, 180, 180, 140, 120, 160]  # Sum = 900px, 150px left/right margins
-BTN_PLAY_AGAIN_RECT = (475, 630, 250, 55)
+
+# Dual summary buttons (F11): side by side, centered as a pair with 40px gap
+# Total pair width = 240 + 40 + 240 = 520; (1200 - 520) // 2 = 340
+SUMMARY_PLAY_AGAIN_RECT = (340, 620, 240, 50)
+SUMMARY_MENU_RECT = (620, 620, 240, 50)
+BTN_PLAY_AGAIN_RECT = SUMMARY_PLAY_AGAIN_RECT  # Backwards compatibility alias for tests
+
+# Main Menu Layout & Typography (Window: 1200 x 750)
+MENU_TITLE = "FLOOD RESCUE"
+MENU_TAGLINE = "Build routes. Save everyone."
+MENU_BUTTON_START = "start"
+MENU_BUTTON_INSTRUCTIONS = "instructions"
+MENU_BUTTON_EXIT = "exit"
+
+# Three menu buttons: 360 x 64 px, centered horizontally at (1200 - 360)//2 = 420, 24 px gaps
+MENU_BUTTONS = {
+    MENU_BUTTON_START:        (420, 340, 360, 64),
+    MENU_BUTTON_INSTRUCTIONS: (420, 428, 360, 64),
+    MENU_BUTTON_EXIT:         (420, 516, 360, 64),
+}
+
+MENU_CAPTIONS = {
+    MENU_BUTTON_START:        "START GAME",
+    MENU_BUTTON_INSTRUCTIONS: "INSTRUCTIONS",
+    MENU_BUTTON_EXIT:         "EXIT",
+}
+
+# Instructions Screen Layout & Typography (Window: 1200 x 750)
+INSTRUCTIONS_TITLE = "HOW TO PLAY & RULES"
+INSTRUCTIONS_BACK_RECT = (500, 650, 200, 50)  # Centered: (1200 - 200)//2 = 500
+INSTRUCTIONS_BACK_LABEL = "BACK"
+
+# Instruction columns layout (two columns, 500px wide each, 40px center gutter)
+INSTRUCTIONS_COL1_X = 80
+INSTRUCTIONS_COL2_X = 620
+INSTRUCTIONS_COL_WIDTH = 500
+INSTRUCTIONS_START_Y = 110
+INSTRUCTIONS_LINE_HEIGHT = 22
+INSTRUCTIONS_SECTION_GAP = 14
+
+# Instruction Section Templates (titles and lines with placeholders)
+INSTRUCTION_SECTIONS_TEMPLATES = [
+    (
+        "Goal",
+        [
+            "Connect every building to the green shelter",
+            "with sandbags before the flood."
+        ]
+    ),
+    (
+        "How to Play",
+        [
+            "1. Press S or click SANDBAG TOOL to toggle placement mode.",
+            "2. Left-click an empty cell to place a sandbag.",
+            "3. Click or right-click an existing sandbag to remove it.",
+            "4. RESET clears all placed sandbags.",
+            "5. CONFIRM starts the flood simulation once routes are ready."
+        ]
+    ),
+    (
+        "Rules",
+        [
+            "• Sandbags connect up, down, left, and right only (no diagonals).",
+            "• Adjacent buildings link directly to each other and the shelter.",
+            "• A building touching the safe network needs no extra sandbags.",
+            "• Sandbags cannot be placed on buildings or the shelter."
+        ]
+    ),
+    (
+        "People",
+        [
+            "• House (H): {house_pop} people",
+            "• School (S): {school_pop} people",
+            "• Hospital (+): {hospital_pop} people"
+        ]
+    ),
+    (
+        "Scoring",
+        [
+            "• {points} points awarded per person safely evacuated.",
+            "• Leftover sandbags earn {bonus} points bonus each,",
+            "  but ONLY if everyone in the level is saved."
+        ]
+    ),
+    (
+        "Levels",
+        [
+            "• Three levels with increasing civilian populations.",
+            "• Sandbag budget equals minimum baseline + {margin} margin.",
+            "• CONTINUE appears only when all civilians are saved;",
+            "  otherwise, you must retry the level."
+        ]
+    )
+]
 
 # Summary Colors
 COLOR_SUMMARY_TITLE = (255, 215, 0)      # Gold
@@ -148,12 +255,82 @@ COLOR_SUMMARY_LINE = (80, 80, 120)       # Divider line
 COLOR_SUMMARY_HEADER = (200, 200, 240)   # Light lavender
 COLOR_TOTAL_SCORE = (50, 205, 50)        # Vibrant green
 
+# Window Title and Headers
+WINDOW_TITLE = "Flood Rescue"
+HEADER_TITLE = "FLOOD RESCUE"
+
 # Message texts
-MSG_CONTINUE_PLACEHOLDER = "Coming in Feature F10..."
+MSG_GRID_RESET = "Grid reset."
+MSG_NEW_CAMPAIGN = "New campaign started!"
 MSG_BONUS_DENIED = "No efficiency bonus: not everyone was saved"
 MSG_BONUS_AWARDED = "Efficiency bonus awarded!"
 MSG_FLOODING_BANNER = "THE FLOOD IS COMING..."       # Banner during flood animation
 MSG_FLOODING_SKIP = "Press SPACE or click to skip"   # Skip hint during flood
+
+# Font Size Constants (F12)
+FONT_SIZE_TITLE_LARGE = 64
+FONT_SIZE_TITLE_MAIN = 42
+FONT_SIZE_SECTION = 36
+FONT_SIZE_LARGE = 56
+FONT_SIZE_BUTTON = 30
+FONT_SIZE_BUTTON_LARGE = 32
+FONT_SIZE_BODY = 28
+FONT_SIZE_HEADING = 26
+FONT_SIZE_SMALL = 24
+FONT_SIZE_INSTRUCTIONS = 22
+FONT_SIZE_COORD = 16
+
+# UI Element Coordinates and Layout Positions (F12)
+# Top panel positions
+PANEL_TITLE_POS = (20, 20)
+PANEL_LEVEL_POS = (430, 20)
+PANEL_SCORE_POS = (430, 55)
+PANEL_PHASE_POS = (1000, 20)
+PANEL_STATS_POS = (20, 60)
+PANEL_SANDBAG_POS = (1000, 60)
+PANEL_HOVER_POS = (20, 120)
+PANEL_SELECTED_POS = (430, 120)
+
+# Legend layout
+LEGEND_BOX_SIZE = 20
+LEGEND_START_X = 50
+LEGEND_START_Y = 670
+LEGEND_SPACING = 150
+STATUS_INDICATOR_RADIUS = 6
+
+# Banners and feedback positions
+BANNER_FLOOD_POS = (WINDOW_WIDTH // 2, 25)
+BANNER_SKIP_POS = (WINDOW_WIDTH // 2, 65)
+MESSAGE_CENTER_POS = (WINDOW_WIDTH // 2, 715)
+
+# Results panel positions
+RESULTS_TITLE_Y = 620
+RESULTS_COL1_X = 80
+RESULTS_COL2_X = 400
+RESULTS_COL3_X = 720
+RESULTS_BONUS_MSG_POS = (WINDOW_WIDTH // 2, 720)
+
+# Confirmation dialog positions
+DIALOG_TITLE_POS = (WINDOW_WIDTH // 2, 290)
+DIALOG_SUBTITLE_POS = (WINDOW_WIDTH // 2, 340)
+DIALOG_INFO_POS = (WINDOW_WIDTH // 2, 375)
+
+# Menu & Instructions screen positions
+MENU_TITLE_POS = (WINDOW_WIDTH // 2, 150)
+MENU_TAGLINE_POS = (WINDOW_WIDTH // 2, 230)
+INSTRUCTIONS_TITLE_POS = (WINDOW_WIDTH // 2, 50)
+
+# Summary screen positions
+SUMMARY_TITLE_POS = (WINDOW_WIDTH // 2, 55)
+SUMMARY_SUBTITLE_POS = (WINDOW_WIDTH // 2, 105)
+SUMMARY_TOTAL_SCORE_POS = (WINDOW_WIDTH // 2, 395)
+SUMMARY_PEOPLE_POS = (WINDOW_WIDTH // 2, 455)
+SUMMARY_EFFICIENCY_POS = (WINDOW_WIDTH // 2, 500)
+SUMMARY_COMMENTARY_POS = (WINDOW_WIDTH // 2, 545)
+
+# Mouse Button Codes
+MOUSE_BTN_LEFT = 1
+MOUSE_BTN_RIGHT = 3
 
 # Flood Animation Timing (F07)
 FLOOD_STEP_MS = 60       # ms per column; 30 x 60 = 1.8 s for the full sweep
@@ -163,7 +340,7 @@ FLOOD_END_HOLD_MS = 800  # pause after the last column before results appear
 MESSAGE_TIMEOUT = 2000 # ms
 
 # Test Layout (Level 2 match: 6 houses, 2 schools, 1 hospital, 1 shelter)
-# Legacy layout kept for earlier tests; no longer used by main.py in F08+
+# Kept for unit tests only; no longer used by main.py in F08+
 TEST_LAYOUT = [
     (CELL_SHELTER, 5, 15),
     (CELL_HOUSE, 1, 3), (CELL_HOUSE, 2, 10), (CELL_HOUSE, 7, 5),
@@ -203,7 +380,7 @@ EFFICIENCY_BONUS_PER_SANDBAG = 5  # Points awarded for each unused sandbag (Deci
 
 # Sandbag settings
 SANDBAG_MARGIN = 5  # Extra sandbags given above baseline for all levels (Decision D2; formula in baseline.calculate_sandbag_budget)
-TEST_SANDBAG_BUDGET = 40  # Legacy constant kept for earlier unit tests; no longer used by main.py in F09+
+TEST_SANDBAG_BUDGET = 40  # Kept for unit tests only; no longer used by main.py in F09+
 
 # Building population values
 POPULATION = {

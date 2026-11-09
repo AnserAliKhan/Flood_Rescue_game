@@ -4,7 +4,6 @@ Computes which cells are flooded, builds column-by-column step lists,
 and converts elapsed time to step counts.
 Pure logic: NO pygame imports allowed.
 """
-from config import ROWS, COLS
 
 
 def get_flooded_cells(grid, safe_cells):

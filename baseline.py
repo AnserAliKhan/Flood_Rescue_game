@@ -6,7 +6,7 @@ Pure logic: NO pygame imports allowed.
 """
 from collections import deque
 import copy
-from config import CELL_EMPTY, CELL_SHELTER, CELL_SANDBAG, DIRECTIONS, SANDBAG_MARGIN
+from config import CELL_EMPTY, CELL_SHELTER, CELL_SANDBAG, DIRECTIONS
 from grid import in_bounds
 import pathfinding
 
